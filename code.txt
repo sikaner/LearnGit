@@ -1,0 +1,453 @@
+from flask import Flask, request, jsonify, render_template
+import random
+from datetime import datetime
+from dotenv import load_dotenv
+
+from chatbot import get_conversation_chain, upload_document
+from dp import site_map
+from response_editing import *
+from ai_assesment import *
+import os
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from flask_cors import CORS
+import json
+from werkzeug.utils import secure_filename
+import tempfile
+
+
+
+app = Flask(_name_)
+
+CORS(app)
+
+load_dotenv()
+
+embeddings = OpenAIEmbeddings()
+
+
+@app.route('/')
+def index():
+    return "Hello World"
+
+
+
+##### Upload files ######################
+
+
+@app.route('/upload-files', methods=['POST'])
+def uploadFiles():
+    try:
+        files = request.files.getlist('pdf_file')
+        user_id = request.form.get('user_id')
+        chat_id = request.form.get('chat_id')
+
+        file_path_list = []
+        for file in files:
+            filename = secure_filename(file.filename)
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1])
+            file.save(temp_file.name)
+            temp_file.close()  # Close the file before processing
+            file_path_list.append(temp_file.name)
+
+        result = upload_document(file_path_list, chat_id, user_id, embeddings)
+
+        return jsonify({'message': result})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+##### Chat with chatbot ######################
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    try:
+        data = request.json
+        # print(data)
+        user_id = data.get('user_id')
+        chat_id = data.get('chat_id')
+        message = data.get('message')
+        history = data.get('history')
+
+        result = get_conversation_chain(str(user_id), str(chat_id), message, history, embeddings)        
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    
+##### Chat with Assesment chatbot ######################
+
+@app.route('/assesment-chat', methods=['POST'])
+def assesmentChat():
+    try:
+        data = request.json
+        # print(data)
+        user_id = data.get('user_id')
+        chat_id = data.get('chat_id')
+        message = data.get('message')
+        history = data.get('history')
+        generalInfo = data.get('general_info')
+        bussinessInfo = data.get('bussiness_info')
+        assessmentName = data.get('assessment_name')
+
+        result = assesment_message(str(user_id), str(chat_id), message, history, embeddings, generalInfo, bussinessInfo, assessmentName)        
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+##### sitemap generater ######################    
+
+@app.route('/sitemap', methods=['POST'])
+def siteMap():
+    try:
+        data = request.json
+        # print(data)
+        user_id = data.get('user_id')
+        chat_id = data.get('chat_id')
+        message = data.get('message')
+        sitemap_name = data.get('sitemap_name')
+
+        result = site_map(str(user_id), str(chat_id), message, embeddings, sitemap_name)
+        result = json.loads(result, strict=False)    
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    
+##### Inspired Me Button ######################
+
+@app.route('/inspire', methods=['POST'])
+def inspiredMe():
+    try:
+        data = request.json
+        message = data.get('message')
+        history = data.get('history')
+        generalInfo = data.get('general_info')
+        bussinessInfo = data.get('bussiness_info')
+
+        result = inspired_me(message,history,generalInfo,bussinessInfo)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    
+
+##################Response Editing##################
+
+##### Improve Writing
+
+@app.route('/improve-writing', methods=['POST'])
+def improveWriting():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = improve_writing(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+######## Fix Grammar
+
+@app.route('/fix-grammar', methods=['POST'])
+def fixGrammar():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = fix_grammar(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+########## Make Shorter
+
+@app.route('/make-shorter', methods=['POST'])
+def makeShorter():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = make_shorter(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+########## Comprehensive Text
+
+@app.route('/comprehensive-text', methods=['POST'])
+def comprehensiveText():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = comprehensive_text(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+########## Auto Text
+
+@app.route('/auto-text', methods=['POST'])
+def autoText():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = auto_text(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+############# Make Longer
+
+@app.route('/make-longer', methods=['POST'])
+def makeLonger():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = make_longer(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+############# Change Tone
+
+@app.route('/change-tone', methods=['POST'])
+def changeTone():
+    try:
+        data = request.json
+        message = data.get('message')
+        tone = data.get('tone')
+
+        result = change_tone(message,tone)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+############## simplify language
+
+@app.route('/simplify-language', methods=['POST'])
+def simplifyLanguage():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = simplify_language(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+################ Summarize
+
+@app.route('/summarize', methods=['POST'])
+def summarizeMessage():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = summarize_message(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+############### Translate
+
+@app.route('/translate', methods=['POST'])
+def translateMessage():
+    try:
+        data = request.json
+        message = data.get('message')
+        language = data.get('language')
+
+        result = translate_message(message, language)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+############## Explain This
+
+@app.route('/explain-this', methods=['POST'])
+def explainThis():
+    try:
+        data = request.json
+        message = data.get('message')
+
+        result = explain_this(message)
+
+        return jsonify({'message': result})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+
+if _name_ == '_main_':
+    app.run(host="0.0.0.0")
+
+*****************************************************
+
+import openai
+import os
+from dotenv import load_dotenv
+# from langchain.chat_models import ChatOpenAI
+# from langchain.prompts.prompt import PromptTemplate
+# from langchain.chains import ConversationalRetrievalChain
+
+
+from operator import itemgetter
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_pinecone import PineconeVectorStore
+
+
+# Upload documents
+from langchain_community.document_loaders import PyPDFLoader
+# from langchain_text_splitters import CharacterTextSplitter
+from langchain.text_splitter import CharacterTextSplitter
+
+from PyPDF2 import PdfReader
+from docx import Document
+
+
+load_dotenv()
+
+def extract_text_from_pdf(file_path):
+    text = ""
+    pdf_reader = PdfReader(file_path)
+    for page in pdf_reader.pages:
+        text += page.extract_text()
+    return text
+
+def extract_text_from_docx(file_path):
+    text = ""
+    doc = Document(file_path)
+    for paragraph in doc.paragraphs:
+        text += paragraph.text + "\n"
+    return text
+
+def extract_text_from_txt(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        text = file.read()
+    return text
+
+def extract_text(file_path):
+    _, extension = os.path.splitext(file_path)
+    if extension.lower() == '.pdf':
+        return extract_text_from_pdf(file_path)
+    elif extension.lower() in ['.doc', '.docx']:
+        return extract_text_from_docx(file_path)
+    elif extension.lower() == '.txt':
+        return extract_text_from_txt(file_path)
+    else:
+        raise ValueError(f"Unsupported file extension: {extension}")
+
+
+def upload_document(file_path_list, chat_id, user_id, embeddings):
+    try:
+        # main_document_list = []
+        # for pdf in file_path_list:
+        #     loader = PyPDFLoader(pdf)
+        #     documents = loader.load()
+        #     main_document_list.extend(documents)
+        # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        # docs = text_splitter.split_documents(main_document_list)
+
+        # text = ""
+        # for pdf in file_path_list:
+        #     pdf_reader = PdfReader(pdf)
+        #     for page in pdf_reader.pages:
+        #         text += page.extract_text()
+
+        text = ""
+        for pdf in file_path_list:
+            text += extract_text(pdf) + "\n"
+
+        text_splitter = CharacterTextSplitter(
+        separator="\n",
+        chunk_size=1000,
+        chunk_overlap=200,
+        length_function=len
+        )
+        chunks = text_splitter.split_text(text)
+
+        #for document
+        # PineconeVectorStore.from_documents(chunks, index_name="quickstart", embedding=embeddings, namespace=chat_id)
+        
+        # for text
+        PineconeVectorStore.from_texts(chunks, index_name="quickstart", embedding=embeddings, namespace=chat_id)
+        return "True"
+    
+    except Exception as e:
+        return "File not uploaded" # str(e)
+
+
+
+
+
+def get_conversation_chain(userid, chatid, user_question, formated_hisory, embeddings):
+
+    model = ChatOpenAI(model_name='gpt-4', temperature=0.5)
+
+    vectorstore = PineconeVectorStore(index_name='quickstart', embedding=embeddings, namespace=chatid)
+    retriever=vectorstore.as_retriever()
+
+    template = """
+    you are a smart assistant your task in to help people specifically for Chnage management. you will response mostly according to the given context and in any case if you don't get any context you can reply by your knowledge. but you will respone just for Chnage management question.
+    {context}
+    {chat_history}
+    Question: {question}
+
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+
+    chain = (
+        {
+            "context": itemgetter("question") | retriever,
+            "question": itemgetter("question"),
+            "chat_history": itemgetter("chat_history"),
+        }
+        | prompt
+        | model
+        | StrOutputParser()
+    )
+
+    return chain.invoke({"question": user_question, "chat_history":formated_hisory})
+******************************************
+
+
